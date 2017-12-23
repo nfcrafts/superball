@@ -1,0 +1,215 @@
+(function() {
+  var Ball, Vector2d, World, _Object, draw, ticks,
+    bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
+    extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    hasProp = {}.hasOwnProperty;
+
+  Math.rand = Math.random;
+
+  Math.random = function(min, max, integer) {
+    if (typeof min === 'number') {
+      if (integer) {
+        return Math.floor(Math.rand() * (max - min) + min);
+      } else {
+        return Math.rand() * (max - min) + min;
+      }
+    } else {
+      return Math.rand();
+    }
+  };
+
+  Vector2d = (function() {
+    function Vector2d(x, y) {
+      this.x = x != null ? x : 0;
+      this.y = y != null ? y : 0;
+    }
+
+    Vector2d.prototype.x = 0;
+
+    Vector2d.prototype.y = 0;
+
+    Vector2d.prototype.add = function(vect) {
+      this.x = this.x + vect.x;
+      this.y = this.y + vect.y;
+      return this;
+    };
+
+    return Vector2d;
+
+  })();
+
+  _Object = (function() {
+    function _Object(position, size1) {
+      this.position = position;
+      this.size = size1;
+      this.contains = bind(this.contains, this);
+    }
+
+    _Object.prototype.contains = function(vect) {
+      return vect.x >= this.position.x && vect.y >= pos.y && vect.x <= this.position.x + this.size.x && vect.y <= this.position.y + this.size.y;
+    };
+
+    return _Object;
+
+  })();
+
+  Ball = (function(superClass) {
+    extend(Ball, superClass);
+
+    function Ball(position, speed, world1) {
+      var size;
+      this.position = position;
+      this.speed = speed;
+      this.world = world1;
+      this.update = bind(this.update, this);
+      this.tick = bind(this.tick, this);
+      this.color = 'rgb(' + Math.random(60, 255, true) + ',' + Math.random(60, 255, true) + ',' + Math.random(60, 255, true) + ')';
+      size = Math.random(5, 100, true);
+      this.size = new Vector2d(size, size);
+      this.id = Math.random().toString(36).substring(7);
+      this.maxTicks = Math.random(60, 200, true);
+    }
+
+    Ball.prototype.speed = new Vector2d(0, 0);
+
+    Ball.prototype.position = new Vector2d(0, 0);
+
+    Ball.prototype.world = null;
+
+    Ball.prototype.elem = null;
+
+    Ball.prototype.elasticity = 0.8;
+
+    Ball.prototype.friction = 0.9;
+
+    Ball.prototype.ticks = 0;
+
+    Ball.prototype.removed = false;
+
+    Ball.prototype.tick = function() {
+      this.speed.add(this.world.wind);
+      this.ticks++;
+      if (this.ticks > this.maxTicks) {
+        this.removed = true;
+        this.world.objects.splice(this.world.objects.indexOf(this), 1);
+        return;
+      }
+      if (Math.abs(this.speed.x) < 0.01) {
+        this.speed.x = 0;
+      }
+      if (Math.abs(this.speed.y) < 0.01) {
+        this.speed.y = 0;
+      }
+      if (this.position.y + this.size.y < this.world.canvas.height) {
+        this.speed.add(this.world.gravity);
+      } else {
+        this.speed.x *= this.friction;
+      }
+      this.position.add(this.speed);
+      if (this.position.x >= this.world.canvas.width - this.size.x && this.speed.x >= 0) {
+        this.speed.x *= -1 * this.elasticity;
+      }
+      if (this.position.x <= 0 && this.speed.x <= 0) {
+        this.speed.x *= -1 * this.elasticity;
+      }
+      if (this.position.y >= this.world.canvas.height - this.size.y && this.speed.y >= 0) {
+        this.speed.y *= -1 * this.elasticity;
+      }
+      if (this.position.y <= 0 && this.speed.y <= 0) {
+        return this.speed.y *= -1 * this.elasticity;
+      }
+    };
+
+    Ball.prototype.update = function() {
+      this.world.ctx.beginPath();
+      this.world.ctx.arc(this.position.x + this.size.x / 2, this.position.y + this.size.y / 2, this.size.x / 2, 2 * Math.PI, false);
+      this.world.ctx.fillStyle = this.color;
+      return this.world.ctx.fill();
+    };
+
+    return Ball;
+
+  })(_Object);
+
+  document.querySelector("canvas").width = window.innerWidth;
+
+  document.querySelector("canvas").height = window.innerHeight;
+
+  ticks = 0;
+
+  World = (function() {
+    World.prototype.wind = new Vector2d(.005, 0);
+
+    World.prototype.gravity = new Vector2d(0, .2);
+
+    function World(canvas) {
+      this.canvas = canvas;
+      this.tick = bind(this.tick, this);
+      this.addObject = bind(this.addObject, this);
+      this.clear = bind(this.clear, this);
+      this.start = bind(this.start, this);
+      this.ctx = this.canvas.getContext('2d');
+      this.objects = [];
+    }
+
+    World.prototype.start = function() {
+      return this.tick();
+    };
+
+    World.prototype.clear = function() {
+      return this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    };
+
+    World.prototype.addObject = function(obj) {
+      return this.objects.push(obj);
+    };
+
+    World.prototype.tick = function() {
+      var i, len, obj, ref;
+      console.log(this.objects.length);
+      ticks++;
+      this.clear();
+      ref = this.objects;
+      for (i = 0, len = ref.length; i < len; i++) {
+        obj = ref[i];
+        if (obj) {
+          if (!obj.removed) {
+            obj.tick();
+            obj.update();
+          }
+        }
+      }
+      return requestAnimationFrame(this.tick.bind(this));
+    };
+
+    return World;
+
+  })();
+
+  setInterval(function() {
+    document.querySelector("#fps").innerHTML = "FPS: " + ticks * 2;
+    return ticks = 0;
+  }, 500);
+
+  window.world = new World(document.querySelector("canvas"));
+
+  draw = false;
+
+  world.canvas.addEventListener("mousedown", function(e) {
+    return draw = true;
+  });
+
+  world.canvas.addEventListener("mouseup", function(e) {
+    world.addObject(new Ball(new Vector2d(e.pageX, e.pageY), new Vector2d(Math.random(-10, 10), Math.random(-10, 10)), world));
+    return draw = false;
+  });
+
+  world.canvas.addEventListener("mousemove", function(e) {
+    if (draw) {
+      return world.addObject(new Ball(new Vector2d(e.pageX, e.pageY), new Vector2d(Math.random(-10, 10), Math.random(-10, 10)), world));
+    }
+  });
+
+  world.start();
+
+}).call(this);
